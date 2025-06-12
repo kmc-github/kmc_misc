@@ -1,0 +1,168 @@
+protected void doGet(HttpServletRequest request, HttpServletResponse response) 
+            throws ServletException, IOException {
+
+  String username = request.getParameter("username");
+  Statement stmt = connection.createStatement();
+  ResultSet rs = stmt.executeQuery(query);
+  String query = "SELECT * FROM employee  WHERE name = ?";
+  try {
+   PreparedStatement stmt = connection.prepareStatement(query);
+   stmt.setString(1, name);
+   ResultSet rs = stmt.executeQuery();
+   response.setContentType("text/html");
+   PrintWriter out = response.getWriter();            
+   if (rs.next()) {
+      out.println("<p>Username: " + rs.getString("name") + "</p>");
+      } 
+   else {
+     out.println("<p>not found</p>");
+     }
+   }
+ catch (Exception e) {
+     throw new ServletException("Database error", e);
+  }
+}
+
+Sample-input:
+http://example.com/user?username=admin' OR '1'='1
+----
+
+Csrf
+
+protected void doPost(HttpServletRequest request, HttpServletResponse response) 
+            throws ServletException, IOException {
+ String amount = request.getParameter("amount");
+ String targetAccount = request.getParameter("targetAccount");
+        
+ HttpSession session = request.getSession(false);
+ User user = (User)session.getAttribute("user");
+ String source_account = user.getAccountId();
+ boolean success = false
+ String sql = "INSERT INTO transactions (transaction_id, source_account, target_account, amount, transaction_date) " +
+              "VALUES (UUID(), ?, ?, ?, NOW())";
+ try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+    stmt.setString(1, sourceAccountId);
+    stmt.setString(2, targetAccountId);
+    stmt.setDouble(3, amount);
+    success =  stmt.executeUpdate() == 1;
+   }
+
+ catch(Exception ex){
+   success = false
+  }
+ if(success)
+ {
+  response.setContentType("text/html");
+  PrintWriter out = response.getWriter();
+  out.println("<html><body>");
+  if (success) {
+   out.println("<h2>Transfer successful!</h2>");
+   } 
+   else {
+      out.println("<h2>Transfer failed</h2>");
+    }
+ out.println("</body></html>");
+  }
+
+
+-------
+
+Command injection
+
+protected void doPost(HttpServletRequest request, HttpServletResponse response) 
+            throws ServletException, IOException {
+  
+ request.getParameter("hostname");
+ try {
+     String command = "ping -c 4 " + hostname;
+     out.println("<h2>Ping Results for " + hostname + "</h2>");
+     out.println("<pre>");
+            
+     Process process = Runtime.getRuntime().exec(command);
+     BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            
+     String line;
+     while ((line = reader.readLine()) != null) {
+        out.println(line);
+       }
+            
+     out.println("</pre>");
+      } catch (Exception e) {
+       out.println("<p style='color:red'>Error: " + e.getMessage() + "</p>");
+      }
+  }
+
+Sample input: http://yourserver.com/ping?host=google.com%3B+cat+%2Fetc%2Fpasswd
+-----------
+Cross-site scripting
+
+protected void doGet(HttpServletRequest request, HttpServletResponse response) 
+            throws ServletException, IOException {
+        
+        response.setContentType("text/html");
+        PrintWriter out = response.getWriter();
+        
+     
+        String name = request.getParameter("name");
+        
+        out.println("<html>");
+        out.println("<head><title>Greeting Page</title></head>");
+        out.println("<body>");
+        out.println("<h1>Hello, " + name + "!</h1>");  // XSS vulnerability here
+        out.println("</body>");
+        out.println("</html>");
+    }
+
+
+------
+Weak cryptographic Hash
+public static String hashPassword(String password) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-1");
+            byte[] hashBytes = md.digest(password.getBytes());
+            
+          
+            StringBuilder sb = new StringBuilder();
+            for (byte b : hashBytes) {
+                sb.append(String.format("%02x", b));
+            }
+            return sb.toString();
+            
+        } catch (Exception e) {
+            throw new RuntimeException("Error occured");
+        }
+    }
+
+---------
+
+protected void doGet(HttpServletRequest request, HttpServletResponse response) 
+            throws ServletException, IOException {
+        
+        // Get file parameter from request
+        String filePath = request.getParameter("file");
+        
+       
+        File file = new File("/var/www/uploads/" + filePath);
+        
+        if (!file.exists()) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND, "File not found");
+            return;
+        }
+        
+        
+        response.setContentType("application/octet-stream");
+        response.setHeader("Content-Disposition", "attachment; filename=\"" + file.getName() + "\"");
+        
+        try (InputStream in = new FileInputStream(file);
+             OutputStream out = response.getOutputStream()) {
+            
+            byte[] buffer = new byte[4096];
+            int bytesRead;
+            while ((bytesRead = in.read(buffer)) != -1) {
+                out.write(buffer, 0, bytesRead);
+            }
+        }
+    }
+}
+Sample input
+http://example.com/download?file=../../../../etc/passwd
