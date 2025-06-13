@@ -166,3 +166,104 @@ protected void doGet(HttpServletRequest request, HttpServletResponse response)
 }
 Sample input
 http://example.com/download?file=../../../../etc/passwd
+
+
+---
+
+
+SSRF
+
+protected void doGet(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        
+        response.setContentType("text/plain");
+        PrintWriter out = response.getWriter();
+        
+        String urlParam = request.getParameter("url");
+        
+       
+        
+        try {
+           
+            URL url = new URL(urlParam);
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            
+
+            BufferedReader reader = new BufferedReader(
+                new InputStreamReader(conn.getInputStream()));
+            
+            String line;
+            while ((line = reader.readLine()) != null) {
+                out.println(line);
+            }
+            reader.close();
+            
+        } catch (MalformedURLException e) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid URL format");
+        } catch (IOException e) {
+		response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Error fetching URL");
+        }
+    }
+
+
+Sample input
+http://yourserver.com/fetchUrl?url=file:///etc/passwd
+http://yourserver.com/fetchUrl?url=http://localhost:8080/admin
+
+
+-------
+IDOR
+
+@WebServlet("/viewDocument")
+public class VulnerableDocumentServlet extends HttpServlet {
+    
+    private Connection connection;
+
+
+public void init() throws ServletException {
+        try {
+            connection = DriverManager.getConnection(
+                "jdbc:mysql://localhost:3000/orgdb", 
+                "dbuser", 
+                "dbpassword");
+        } catch (SQLException e) {
+            throw new ServletException("Database connection failed", e);
+        }
+    }
+
+protected void doGet(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        
+        response.setContentType("text/html");
+        PrintWriter out = response.getWriter();
+        
+        
+        String docId = request.getParameter("id");
+        
+        try {
+            
+            String sql = "SELECT * FROM documents WHERE id = ?";
+            PreparedStatement stmt = connection.prepareStatement(sql);
+            stmt.setString(1, docId);
+            ResultSet rs = stmt.executeQuery();
+            
+            if (rs.next()) {
+                out.println("<h1>" + rs.getString("title") + "</h1>");
+                out.println("<p>" + rs.getString("content") + "</p>");
+            } else {
+                out.println("<p>Document not found</p>");
+            }
+            
+        } catch (SQLException e) {
+            throw new ServletException("Database error";
+        }
+    }
+}
+
+Sample input
+
+http://example.com/viewDocument?id=123
+http://example.com/viewDocument?id=124
+http://example.com/viewDocument?id=125
+
+
